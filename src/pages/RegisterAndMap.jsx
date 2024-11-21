@@ -1,13 +1,9 @@
-// import { useState } from 'react'
-import './App.css'
-import { useState, useEffect } from "react";
-import { db } from "./config/firebase";
+import { useState, useEffect, useRef } from "react";
+import { db } from "../config/firebaseConfig";
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import "@react-leaflet/core";
-import { Autocomplete } from "@react-google-maps/api";
 
-function App() {
+const RegisterAndMap = () => {
   const [companies, setCompanies] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
@@ -16,6 +12,7 @@ function App() {
     longitude: "",
   });
   const [errors, setErrors] = useState({});
+  const autocompleteRef = useRef(null);
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -25,6 +22,26 @@ function App() {
 
     fetchCompanies();
   }, []);
+
+  useEffect(() => {
+    if (window.google) {
+      const autocomplete = new window.google.maps.places.Autocomplete(autocompleteRef.current, {
+        componentRestrictions: { country: "us" },
+      });
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (place.geometry) {
+          const location = place.geometry.location;
+          setFormData({
+            ...formData,
+            latitude: location.lat(),
+            longitude: location.lng(),
+          });
+        }
+      });
+    }
+  }, [formData]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -61,8 +78,8 @@ function App() {
   };
 
   return (
-    <>
-      <div className="flex h-screen">
+    <div className="flex h-screen">
+      {/* Form Section */}
       <div className="w-1/3 p-4 bg-gray-100">
         <h1 className="text-lg font-bold mb-4">Register Logistics Company</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -88,28 +105,21 @@ function App() {
           </div>
           <div>
             <label className="block mb-1">Location</label>
-            <Autocomplete
-              onPlaceChanged={(place) => {
-                const location = place.geometry.location;
-                setFormData({
-                  ...formData,
-                  latitude: location.lat(),
-                  longitude: location.lng(),
-                });
-              }}
-              options={{ componentRestrictions: { country: "us" } }}
-            >
-              <input className="w-full p-2 border rounded" placeholder="Search location" />
-            </Autocomplete>
+            <input
+              ref={autocompleteRef}
+              className="w-full p-2 border rounded"
+              placeholder="Search location"
+            />
             {errors.location && <span className="text-red-500">{errors.location}</span>}
           </div>
           <button type="submit" className="w-full bg-blue-500 text-white p-2 rounded">
             Register
-          </button> 
+          </button>
         </form>
       </div>
-        {/* Map Section */}
-        <div className="w-2/3">
+
+      {/* Map Section */}
+      <div className="w-2/3">
         <MapContainer center={[0, 0]} zoom={2} style={{ height: "100%", width: "100%" }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {companies.map((company) => (
@@ -131,9 +141,8 @@ function App() {
           ))}
         </MapContainer>
       </div>
-      </div>
-    </>
-  )
-}
+    </div>
+  );
+};
 
-export default App
+export default RegisterAndMap;
