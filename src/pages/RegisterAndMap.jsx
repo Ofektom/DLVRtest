@@ -1,141 +1,175 @@
-import { useState, useEffect, useRef } from "react";
-import { db } from "../config/firebaseConfig";
+import { useForm } from "react-hook-form";
+import { useState, useEffect } from "react";
+import { db } from "../config/firebase";
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Custom marker icon
+const customMarkerIcon = new L.Icon({
+  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  shadowSize: [41, 41],
+});
 
 const RegisterAndMap = () => {
   const [companies, setCompanies] = useState([]);
-  const [formData, setFormData] = useState({
-    name: "",
-    whatsapp_number: "",
-    latitude: "",
-    longitude: "",
-  });
-  const [errors, setErrors] = useState({});
-  const autocompleteRef = useRef(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [availableRiders, setAvailableRiders] = useState([]);
+  const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm();
 
   useEffect(() => {
     const fetchCompanies = async () => {
-      const snapshot = await getDocs(collection(db, "logistics_companies"));
-      setCompanies(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      try {
+        const snapshot = await getDocs(collection(db, "logistics_companies"));
+        const companiesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setCompanies(companiesData);
+      } catch (error) {
+        console.error("Error fetching companies: ", error);
+      }
     };
-
     fetchCompanies();
   }, []);
 
-  useEffect(() => {
-    if (window.google) {
-      const autocomplete = new window.google.maps.places.Autocomplete(autocompleteRef.current, {
-        componentRestrictions: { country: "us" },
-      });
-
-      autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        if (place.geometry) {
-          const location = place.geometry.location;
-          setFormData({
-            ...formData,
-            latitude: location.lat(),
-            longitude: location.lng(),
-          });
-        }
-      });
+  const fetchSuggestions = async (query) => {
+    if (query.length < 3) {
+      setSuggestions([]);
+      return;
     }
-  }, [formData]);
-
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.name) newErrors.name = "Company name is required";
-    if (!formData.whatsapp_number) newErrors.whatsapp_number = "Whatsapp number is required";
-    if (!formData.latitude || !formData.longitude) newErrors.location = "Location is required";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${query}&format=json&addressdetails=1&limit=5`
+      );
+      const data = await response.json();
+      setSuggestions(data);
+    } catch (error) {
+      console.error("Error fetching location data: ", error);
+    }
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (!validateForm()) return;
+  const handleLocationSelect = (location) => {
+    setValue("latitude", location.lat);
+    setValue("longitude", location.lon);
+    setSuggestions([]);
+  };
 
+  const onRegisterSubmit = async (data) => {
     try {
-      const location = { latitude: formData.latitude, longitude: formData.longitude };
-      await addDoc(collection(db, "logistics_companies"), { ...formData, location });
+      const location = { latitude: parseFloat(data.latitude), longitude: parseFloat(data.longitude) };
+      const newCompany = { ...data, location };
+      await addDoc(collection(db, "logistics_companies"), newCompany);
       alert("Company registered successfully!");
-      setFormData({ name: "", whatsapp_number: "", latitude: "", longitude: "" });
+      reset();
+      setCompanies((prev) => [...prev, newCompany]);
     } catch (error) {
       console.error("Error adding document: ", error);
     }
   };
 
-  const handleBooking = (company) => {
-    fetch("https://<your-function-url>/findNearestRider", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(company.location),
-    })
-      .then((response) => response.json())
-      .then((data) => alert(`Nearest Rider: ${data.nearestRider.name}`))
-      .catch((error) => console.error("Error booking rider:", error));
+  const handleOrderSubmit = async (e, companyId) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const pickup = formData.get("pickup");
+    const dropoff = formData.get("dropoff");
+    const description = formData.get("description");
+
+    try {
+      const response = await fetch("https://your-backend-url/api/nearest-rider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickup, dropoff, description, companyId }),
+      });
+      const riders = await response.json();
+      setAvailableRiders(riders);
+    } catch (error) {
+      console.error("Error fetching available riders: ", error);
+    }
   };
 
   return (
     <div className="flex h-screen">
-      {/* Form Section */}
+      {/* Registration Form */}
       <div className="w-1/3 p-4 bg-gray-100">
-        <h1 className="text-lg font-bold mb-4">Register Logistics Company</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <h1 className="text-lg font-bold mb-4">Register Company</h1>
+        <form onSubmit={handleSubmit(onRegisterSubmit)} className="space-y-4">
           <div>
             <label className="block mb-1">Company Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full p-2 border rounded"
-            />
-            {errors.name && <span className="text-red-500">{errors.name}</span>}
+            <input {...register("name", { required: true })} className="w-full p-2 border rounded" />
+            {errors.name && <span className="text-red-500">Company name is required</span>}
           </div>
           <div>
             <label className="block mb-1">Whatsapp Number</label>
-            <input
-              type="text"
-              value={formData.whatsapp_number}
-              onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
-              className="w-full p-2 border rounded"
-            />
-            {errors.whatsapp_number && <span className="text-red-500">{errors.whatsapp_number}</span>}
+            <input {...register("whatsapp_number", { required: true })} className="w-full p-2 border rounded" />
+            {errors.whatsapp_number && <span className="text-red-500">Whatsapp number is required</span>}
+          </div>
+          <div>
+            <label className="block mb-1">Email</label>
+            <input {...register("email", { required: true })} className="w-full p-2 border rounded" />
+            {errors.email && <span className="text-red-500">Email is required</span>}
           </div>
           <div>
             <label className="block mb-1">Location</label>
             <input
-              ref={autocompleteRef}
+              onChange={(e) => fetchSuggestions(e.target.value)}
               className="w-full p-2 border rounded"
               placeholder="Search location"
             />
-            {errors.location && <span className="text-red-500">{errors.location}</span>}
+            {suggestions.length > 0 && (
+              <ul className="border p-2 mt-2 bg-white rounded shadow">
+                {suggestions.map((suggestion, index) => (
+                  <li
+                    key={index}
+                    className="cursor-pointer hover:bg-gray-200 p-1"
+                    onClick={() => handleLocationSelect(suggestion)}
+                  >
+                    {suggestion.display_name}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <button type="submit" className="w-full bg-blue-500 text-white p-2 rounded">
-            Register
-          </button>
+          <input {...register("latitude", { required: true })} hidden />
+          <input {...register("longitude", { required: true })} hidden />
+          <button type="submit" className="w-full bg-blue-500 text-white p-2 rounded">Register</button>
         </form>
       </div>
 
-      {/* Map Section */}
+      {/* Map */}
       <div className="w-2/3">
-        <MapContainer center={[0, 0]} zoom={2} style={{ height: "100%", width: "100%" }}>
+        <MapContainer center={[0, 0]} zoom={4} style={{ height: "100%", width: "100%" }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {companies.map((company) => (
             <Marker
               key={company.id}
               position={[company.location.latitude, company.location.longitude]}
+              icon={customMarkerIcon}
             >
               <Popup>
-                <p className="font-bold">{company.name}</p>
-                <p>Whatsapp: {company.whatsapp_number}</p>
-                <button
-                  onClick={() => handleBooking(company)}
-                  className="bg-blue-500 text-white p-1 rounded mt-2"
-                >
-                  Book Now
-                </button>
+                <div>
+                  <p><strong>{company.name}</strong></p>
+                  <p>Whatsapp: {company.whatsapp_number}</p>
+                  <p>Email: {company.email}</p>
+                  <form onSubmit={(e) => handleOrderSubmit(e, company.id)}>
+                    <input type="text" name="pickup" placeholder="Pickup point" className="w-full p-2 border rounded mb-2" />
+                    <input type="text" name="dropoff" placeholder="Dropoff point" className="w-full p-2 border rounded mb-2" />
+                    <textarea name="description" placeholder="Description" className="w-full p-2 border rounded mb-2"></textarea>
+                    <button type="submit" className="w-full bg-green-500 text-white p-2 rounded">Submit</button>
+                  </form>
+                  {availableRiders.length > 0 && (
+                    <div>
+                      <h4>Available Riders</h4>
+                      <ul>
+                        {availableRiders.map((rider, index) => (
+                          <li key={index}>{rider.name} - {rider.distance} km away</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </Popup>
             </Marker>
           ))}
