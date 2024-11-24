@@ -4,12 +4,12 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDMFC7HJdIWH0OUITw-iRH6yiOZgiet_6k",
-  authDomain: "dlvr-test.firebaseapp.com",
-  projectId: "dlvr-test",
-  storageBucket: "dlvr-test.firebasestorage.app",
-  messagingSenderId: "571994842295",
-  appId: "1:571994842295:web:4272fd7e0974062f301932",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
   measurementId: "G-YKGPJ7HMP9"
 };
 
