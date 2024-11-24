@@ -11,13 +11,21 @@
   },
   "dependencies": {
     "@react-google-maps/api": "^2.20.3",
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
     "firebase": "^11.0.2",
+    "firebase-admin": "^13.0.1",
+    "firebase-functions": "^6.1.1",
     "leaflet": "^1.9.4",
     "leaflet-control-geocoder": "^2.4.0",
+    "prop-types": "^15.8.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.2",
     "react-leaflet": "^4.2.1",
+    "react-phone-input-2": "^2.15.1",
+    "react-phone-number-input": "^3.4.9",
     "react-router-dom": "^6.28.0"
   },
   "devDependencies": {

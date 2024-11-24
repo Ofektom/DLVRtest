@@ -1,10 +1,13 @@
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import { db } from "../config/firebase";
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import useRiderLocations from "../hooks/useRiderLocations";
 
 // Custom marker icon
 const customMarkerIcon = new L.Icon({
@@ -20,6 +23,9 @@ const RegisterAndMap = () => {
   const [companies, setCompanies] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [availableRiders, setAvailableRiders] = useState([]);
+  const [riderNumbers, setRiderNumbers] = useState([]);
+  const [currentNumber, setCurrentNumber] = useState(""); // For react-phone-number-input
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm();
 
   useEffect(() => {
@@ -57,37 +63,89 @@ const RegisterAndMap = () => {
     setSuggestions([]);
   };
 
+  const addRiderNumber = () => {
+    if (currentNumber) {
+      setRiderNumbers((prev) => [...prev, currentNumber]);
+      setCurrentNumber(""); // Reset the input
+    }
+  };
+
+  const removeRiderNumber = (index) => {
+    setRiderNumbers((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const onRegisterSubmit = async (data) => {
     try {
       const location = { latitude: parseFloat(data.latitude), longitude: parseFloat(data.longitude) };
-      const newCompany = { ...data, location };
+      const newCompany = { ...data, location, riderNumbers };
       await addDoc(collection(db, "logistics_companies"), newCompany);
       alert("Company registered successfully!");
       reset();
+      setRiderNumbers([]);
       setCompanies((prev) => [...prev, newCompany]);
     } catch (error) {
       console.error("Error adding document: ", error);
     }
   };
 
+
+  //to be updated
+
+  const { ridersNumbers, riderLocations, loading, error } = useRiderLocations(selectedCompanyId);
+
   const handleOrderSubmit = async (e, companyId) => {
     e.preventDefault();
+    setSelectedCompanyId(companyId);
+
     const formData = new FormData(e.target);
     const pickup = formData.get("pickup");
     const dropoff = formData.get("dropoff");
     const description = formData.get("description");
 
+    // Fetch latitude and longitude based on the pickup location
+    const pickupLocation = await getLocationCoordinates(pickup);
+
+    // Check if data is still loading or if there was an error fetching data
+    if (loading) {
+      console.log("Loading rider locations...");
+      return; // Optionally, show a loading indicator in the UI
+    }
+
+    if (error) {
+      console.error(error);
+      return; // Optionally, show an error message in the UI
+    }
+
     try {
-      const response = await fetch("https://your-backend-url/api/nearest-rider", {
+      const response = await fetch("https://<firebase-project-id>.cloudfunctions.net/findNearestRider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pickup, dropoff, description, companyId }),
+        body: JSON.stringify({
+          pickup: pickupLocation,
+          dropoff,
+          description,
+          companyId,
+          ridersNumbers,
+          riderLocations,
+        }),
       });
       const riders = await response.json();
       setAvailableRiders(riders);
     } catch (error) {
       console.error("Error fetching available riders: ", error);
     }
+  };
+  
+  const getLocationCoordinates = async (pickupLocation) => {
+    // Use a geocoding service to get coordinates (e.g., OpenStreetMap Nominatim API)
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${pickupLocation}&format=json&addressdetails=1&limit=1`
+    );
+    const data = await response.json();
+    return {
+      latitude: data[0]?.lat,
+      longitude: data[0]?.lon,
+    };
   };
 
   return (
@@ -134,6 +192,26 @@ const RegisterAndMap = () => {
           </div>
           <input {...register("latitude", { required: true })} hidden />
           <input {...register("longitude", { required: true })} hidden />
+          <div>
+            <label className="block mb-1">Add Phone Number of Riders</label>
+            <div className="flex items-center">
+              <PhoneInput
+                defaultCountry="NG"
+                value={currentNumber}
+                onChange={setCurrentNumber}
+                className="w-full p-2 border rounded mr-2"
+              />
+              <button type="button" onClick={addRiderNumber} className="bg-blue-500 text-white p-2 rounded">Add</button>
+            </div>
+            <ul className="mt-2">
+              {riderNumbers.map((number, index) => (
+                <li key={index} className="flex justify-between items-center bg-gray-200 p-2 rounded mb-1">
+                  {number}
+                  <button type="button" onClick={() => removeRiderNumber(index)} className="text-red-500">Remove</button>
+                </li>
+              ))}
+            </ul>
+          </div>
           <button type="submit" className="w-full bg-blue-500 text-white p-2 rounded">Register</button>
         </form>
       </div>
