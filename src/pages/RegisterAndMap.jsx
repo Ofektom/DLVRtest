@@ -7,7 +7,6 @@ import { collection, addDoc, getDocs } from "firebase/firestore";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import useRiderLocations from "../hooks/useRiderLocations";
 
 // Custom marker icon
 const customMarkerIcon = new L.Icon({
@@ -24,8 +23,7 @@ const RegisterAndMap = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [availableRiders, setAvailableRiders] = useState([]);
   const [riderNumbers, setRiderNumbers] = useState([]);
-  const [currentNumber, setCurrentNumber] = useState(""); // For react-phone-number-input
-  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  const [currentNumber, setCurrentNumber] = useState(""); 
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm();
 
   useEffect(() => {
@@ -89,13 +87,8 @@ const RegisterAndMap = () => {
   };
 
 
-  //to be updated
-
-  const { ridersNumbers, riderLocations, loading, error } = useRiderLocations(selectedCompanyId);
-
   const handleOrderSubmit = async (e, companyId) => {
     e.preventDefault();
-    setSelectedCompanyId(companyId);
 
     const formData = new FormData(e.target);
     const pickup = formData.get("pickup");
@@ -105,19 +98,8 @@ const RegisterAndMap = () => {
     // Fetch latitude and longitude based on the pickup location
     const pickupLocation = await getLocationCoordinates(pickup);
 
-    // Check if data is still loading or if there was an error fetching data
-    if (loading) {
-      console.log("Loading rider locations...");
-      return; // Optionally, show a loading indicator in the UI
-    }
-
-    if (error) {
-      console.error(error);
-      return; // Optionally, show an error message in the UI
-    }
-
     try {
-      const response = await fetch("https://<firebase-project-id>.cloudfunctions.net/findNearestRider", {
+      const response = await fetch("https://dlv-rtest.vercel.app/findNearestRider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,8 +107,6 @@ const RegisterAndMap = () => {
           dropoff,
           description,
           companyId,
-          ridersNumbers,
-          riderLocations,
         }),
       });
       const riders = await response.json();
