@@ -1,10 +1,10 @@
-#### Instructions for Using the App
+## Instructions for Using the App
 
-## Access the Application:
+### Access the Application:
 
 Visit the deployed application link provided in the submission email.
 
-## Register a Logistics Company:
+### Register a Logistics Company:
 
 On the left-hand side of the screen, fill out the "Register Company" form with the following:
 Company Name (Required)
@@ -17,7 +17,7 @@ Add rider phone numbers using the provided phone input field and click the "Add"
 Click the "Register" button to submit the form.
 A success message will confirm the company registration, and the company will appear on the map.
 
-## View Registered Companies on the Map:
+### View Registered Companies on the Map:
 
 The map on the right-hand side displays markers for all registered logistics companies.
 Click on a marker to view the company's details in a popup. The details include:
@@ -27,7 +27,7 @@ Whatsapp number
 Email
 A form to place an order.
 
-## Place an Order with a Logistics Company:
+### Place an Order with a Logistics Company:
 
 In the company's popup:
 Fill out the order form with the following details:
@@ -36,7 +36,8 @@ Dropoff Point (Optional)
 Description of the order (Optional)
 Click the "Book Now" button to submit the order.
 The app will find the nearest available dispatch rider and display their contact information (name and phone number).
-Contact the Rider:
+
+### Contact the Rider:
 
 If a rider is successfully located, their information will appear in a popup at the bottom-left of the screen.
 Use the provided phone number to contact the rider.
