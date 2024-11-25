@@ -8,7 +8,6 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-
 // Custom marker icon
 const customMarkerIcon = new L.Icon({
   iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
@@ -22,13 +21,10 @@ const customMarkerIcon = new L.Icon({
 const RegisterAndMap = () => {
   const [companies, setCompanies] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
-  const [availableRider, setAvailableRider] = useState(null);
+  const [availableRiders, setAvailableRiders] = useState([]);
   const [riderNumbers, setRiderNumbers] = useState([]);
   const [currentNumber, setCurrentNumber] = useState(""); 
-  const [riderPhoneNumber, setRiderPhoneNumber] = useState("");
-  const [riderName, setRiderName] = useState("");
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm();
-
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -42,7 +38,6 @@ const RegisterAndMap = () => {
     };
     fetchCompanies();
   }, []);
-
 
   const fetchSuggestions = async (query) => {
     if (query.length < 3) {
@@ -121,17 +116,13 @@ const RegisterAndMap = () => {
           companyId,
         }),
       });
-      const rider = await response.json();
-      alert("Rider found!");
-      setRiderPhoneNumber(rider.phoneNumber);  // Assuming the response contains phoneNumber
-      setRiderName(rider.name || "Unknown Rider");
-      setAvailableRider(rider);
+      const riders = await response.json();
+      setAvailableRiders(riders);
     } catch (error) {
-      console.error("Error fetching available rider: ", error);
+      console.error("Error fetching available riders: ", error);
     }
   };
   
-
   const getLocationCoordinates = async (pickupLocation) => {
     // Use a geocoding service to get coordinates (e.g., OpenStreetMap Nominatim API)
     const response = await fetch(
@@ -230,34 +221,28 @@ const RegisterAndMap = () => {
                   <p>Address: {company.address}</p>
                   <p>Phone: {company.whatsapp_number}</p>
                   <p>Email: {company.email}</p>
-                  <p><strong>Place Order</strong></p>
                   <form onSubmit={(e) => handleOrderSubmit(e, company.id)}>
                     <input type="text" name="pickup" placeholder="Pickup point" className="w-full p-2 border rounded mb-2" />
                     <input type="text" name="dropoff" placeholder="Dropoff point" className="w-full p-2 border rounded mb-2" />
                     <textarea name="description" placeholder="Description" className="w-full p-2 border rounded mb-2"></textarea>
                     <button type="submit" className="w-full bg-green-500 text-white p-2 rounded">Book Now</button>
                   </form>
+                  {availableRiders.length > 0 && (
+                    <div>
+                      <h4>Available Riders</h4>
+                      <ul>
+                        {availableRiders.map((rider, index) => (
+                          <li key={index}>{rider.name} - {rider.distance} km away</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </Popup>
             </Marker>
           ))}
         </MapContainer>
       </div>
-      {/* Rider Information Popup */}
-      {/* {riderPhoneNumber && (
-        <div className="fixed bottom-4 left-4 bg-white p-4 border rounded shadow-md">
-          <div className="flex items-center">
-            <div className="w-6 h-6 bg-gray-500 rounded-full mr-2"></div>
-            <span>{riderName}</span>
-          </div>
-          <div className="flex items-center mt-2">
-            <span>{riderPhoneNumber}</span>
-            <a href={`tel:${riderPhoneNumber}`} className="ml-2 text-blue-500">
-              <i className="fas fa-phone-alt"></i>
-            </a>
-          </div>
-        </div>
-      )} */}
     </div>
   );
 };
