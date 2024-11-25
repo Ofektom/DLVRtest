@@ -244,7 +244,7 @@ const RegisterAndMap = () => {
         </MapContainer>
       </div>
       {/* Rider Information Popup */}
-      {riderPhoneNumber && (
+      {/* {riderPhoneNumber && (
         <div className="fixed bottom-4 left-4 bg-white p-4 border rounded shadow-md">
           <div className="flex items-center">
             <div className="w-6 h-6 bg-gray-500 rounded-full mr-2"></div>
@@ -257,7 +257,7 @@ const RegisterAndMap = () => {
             </a>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
