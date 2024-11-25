@@ -8,6 +8,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+
 // Custom marker icon
 const customMarkerIcon = new L.Icon({
   iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
@@ -21,10 +22,12 @@ const customMarkerIcon = new L.Icon({
 const RegisterAndMap = () => {
   const [companies, setCompanies] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
-  const [availableRiders, setAvailableRiders] = useState([]);
   const [riderNumbers, setRiderNumbers] = useState([]);
   const [currentNumber, setCurrentNumber] = useState(""); 
+  const [riderPhoneNumber, setRiderPhoneNumber] = useState("");
+  const [riderName, setRiderName] = useState("");
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm();
+
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -38,6 +41,7 @@ const RegisterAndMap = () => {
     };
     fetchCompanies();
   }, []);
+
 
   const fetchSuggestions = async (query) => {
     if (query.length < 3) {
@@ -55,9 +59,11 @@ const RegisterAndMap = () => {
     }
   };
 
+
   const handleLocationSelect = (location) => {
     setValue("latitude", location.lat);
     setValue("longitude", location.lon);
+    setValue("address", location.display_name);
     setSuggestions([]);
   };
 
@@ -72,9 +78,14 @@ const RegisterAndMap = () => {
     setRiderNumbers((prev) => prev.filter((_, i) => i !== index));
   };
 
+
   const onRegisterSubmit = async (data) => {
     try {
-      const location = { latitude: parseFloat(data.latitude), longitude: parseFloat(data.longitude) };
+      const location = {
+        latitude: parseFloat(data.latitude),
+        longitude: parseFloat(data.longitude),
+        address: data.address, // Include address in the payload
+      };
       const newCompany = { ...data, location, riderNumbers };
       await addDoc(collection(db, "logistics_companies"), newCompany);
       alert("Company registered successfully!");
@@ -86,20 +97,24 @@ const RegisterAndMap = () => {
     }
   };
 
-
   const handleOrderSubmit = async (e, companyId) => {
     e.preventDefault();
-
+  
     const formData = new FormData(e.target);
-    const pickup = formData.get("pickup");
-    const dropoff = formData.get("dropoff");
-    const description = formData.get("description");
-
+    const pickup = formData.get("pickup").trim(); // Ensure it's a string
+    const dropoff = formData.get("dropoff").trim();
+    const description = formData.get("description").trim();
+  
+    if (!pickup) {
+      alert("Pickup location is required.");
+      return;
+    }
+  
     // Fetch latitude and longitude based on the pickup location
     const pickupLocation = await getLocationCoordinates(pickup);
-
+  
     try {
-      const response = await fetch("http://localhost:3000/api/findNearestRider", {
+      const response = await fetch("https://dlv-rtest-llfc.vercel.app/api/findNearestRider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -109,13 +124,23 @@ const RegisterAndMap = () => {
           companyId,
         }),
       });
-      const riders = await response.json();
-      setAvailableRiders(riders);
+      const rider = await response.json();
+  
+      if (response.ok) {
+        alert("Rider found!");
+        setRiderPhoneNumber(rider.phoneNumber);
+        setRiderName(rider.name || "Unknown Rider");
+      } else {
+        console.error("Error finding rider:", rider);
+        alert("Failed to find a rider.");
+      }
     } catch (error) {
-      console.error("Error fetching available riders: ", error);
+      console.error("Error fetching available rider:", error);
     }
   };
   
+  
+
   const getLocationCoordinates = async (pickupLocation) => {
     // Use a geocoding service to get coordinates (e.g., OpenStreetMap Nominatim API)
     const response = await fetch(
@@ -139,23 +164,16 @@ const RegisterAndMap = () => {
             <input {...register("name", { required: true })} className="w-full p-2 border rounded" />
             {errors.name && <span className="text-red-500">Company name is required</span>}
           </div>
+          
           <div>
-            <label className="block mb-1">Whatsapp Number</label>
-            <input {...register("whatsapp_number", { required: true })} className="w-full p-2 border rounded" />
-            {errors.whatsapp_number && <span className="text-red-500">Whatsapp number is required</span>}
-          </div>
-          <div>
-            <label className="block mb-1">Email</label>
-            <input {...register("email", { required: true })} className="w-full p-2 border rounded" />
-            {errors.email && <span className="text-red-500">Email is required</span>}
-          </div>
-          <div>
-            <label className="block mb-1">Location</label>
+            <label className="block mb-1">Address</label>
             <input
+              {...register("address", { required: true })}
               onChange={(e) => fetchSuggestions(e.target.value)}
               className="w-full p-2 border rounded"
               placeholder="Search location"
             />
+            {errors.address && <span className="text-red-500">Address is required</span>}
             {suggestions.length > 0 && (
               <ul className="border p-2 mt-2 bg-white rounded shadow">
                 {suggestions.map((suggestion, index) => (
@@ -170,10 +188,19 @@ const RegisterAndMap = () => {
               </ul>
             )}
           </div>
+          <div>
+            <label className="block mb-1">Whatsapp Number</label>
+            <input {...register("whatsapp_number", { required: true })} className="w-full p-2 border rounded" />
+            {errors.whatsapp_number && <span className="text-red-500">Whatsapp number is required</span>}
+          </div>
+          <div>
+            <label className="block mb-1">Email</label>
+            <input {...register("email", { required: false })} className="w-full p-2 border rounded" />
+          </div>
           <input {...register("latitude", { required: true })} hidden />
           <input {...register("longitude", { required: true })} hidden />
           <div>
-            <label className="block mb-1">Add Phone Number of Riders</label>
+            <label className="block mb-1">Riders Phone Number</label>
             <div className="flex items-center">
               <PhoneInput
                 defaultCountry="NG"
@@ -209,30 +236,37 @@ const RegisterAndMap = () => {
               <Popup>
                 <div>
                   <p><strong>{company.name}</strong></p>
-                  <p>Whatsapp: {company.whatsapp_number}</p>
+                  <p>Address: {company.address}</p>
+                  <p>Phone: {company.whatsapp_number}</p>
                   <p>Email: {company.email}</p>
+                  <p><strong>Place Order</strong></p>
                   <form onSubmit={(e) => handleOrderSubmit(e, company.id)}>
                     <input type="text" name="pickup" placeholder="Pickup point" className="w-full p-2 border rounded mb-2" />
                     <input type="text" name="dropoff" placeholder="Dropoff point" className="w-full p-2 border rounded mb-2" />
                     <textarea name="description" placeholder="Description" className="w-full p-2 border rounded mb-2"></textarea>
-                    <button type="submit" className="w-full bg-green-500 text-white p-2 rounded">Submit</button>
+                    <button type="submit" className="w-full bg-green-500 text-white p-2 rounded">Book Now</button>
                   </form>
-                  {availableRiders.length > 0 && (
-                    <div>
-                      <h4>Available Riders</h4>
-                      <ul>
-                        {availableRiders.map((rider, index) => (
-                          <li key={index}>{rider.name} - {rider.distance} km away</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
                 </div>
               </Popup>
             </Marker>
           ))}
         </MapContainer>
       </div>
+      {/* Rider Information Popup */}
+      {riderPhoneNumber && (
+        <div className="fixed bottom-4 left-4 bg-white p-4 border rounded shadow-md">
+          <div className="flex items-center">
+            <div className="w-6 h-6 bg-gray-500 rounded-full mr-2"></div>
+            <span>{riderName}</span>
+          </div>
+          <div className="flex items-center mt-2">
+            <span>{riderPhoneNumber}</span>
+            <a href={`tel:${riderPhoneNumber}`} className="ml-2 text-blue-500">
+              <i className="fas fa-phone-alt"></i>
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
