@@ -1,10 +1,10 @@
+// 
+
+
+// src/hooks/useRiderLocations.js
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { db } from "../config/firebase";
 import { doc, getDoc } from "firebase/firestore";
-
-const OPENCELLID_API_URL = "https://opencellid.org/api";
-const OPENCELLID_API_KEY = import.meta.env.VITE_OPENCELLID_API_KEY;
 
 const useRiderLocations = (companyId) => {
   const [ridersNumbers, setRiderNumbers] = useState([]);
@@ -29,34 +29,51 @@ const useRiderLocations = (companyId) => {
       }
     };
 
-    fetchRiderNumbers();
+    if (companyId) {
+      fetchRiderNumbers();
+    }
   }, [companyId]);
 
-  // Fetch real-time locations of riders using OpenCellID
+  // Fetch locations through your backend API
   useEffect(() => {
     const fetchRiderLocations = async () => {
-      if (!ridersNumbers.length) return;
+      if (!ridersNumbers.length || !companyId) return;
   
       setLoading(true);
       setError(null);
   
       try {
-        const locationPromises = ridersNumbers.map((number) =>
-          axios.get(`${OPENCELLID_API_URL}/get?key=${OPENCELLID_API_KEY}&msisdn=${number}`)
-        );
-        const locationResponses = await Promise.all(locationPromises);
-        const locations = locationResponses.map((response) => response.data.location);
-        setRiderLocations(locations);
+        const response = await fetch('/api/getRiderLocations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            companyId,
+            riderNumbers: ridersNumbers
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch rider locations');
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          setRiderLocations(data.locations);
+        } else {
+          throw new Error(data.message || 'Failed to fetch locations');
+        }
       } catch (err) {
         console.error("Error fetching rider locations: ", err);
-        setError("Failed to fetch rider locations.");
+        setError(err.message || "Failed to fetch rider locations.");
       } finally {
         setLoading(false);
       }
     };
   
     fetchRiderLocations();
-  }, [ridersNumbers]);
+  }, [ridersNumbers, companyId]);
 
   return { ridersNumbers, riderLocations, loading, error };
 };
