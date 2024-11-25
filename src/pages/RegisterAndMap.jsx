@@ -99,7 +99,7 @@ const RegisterAndMap = () => {
     const pickupLocation = await getLocationCoordinates(pickup);
 
     try {
-      const response = await fetch("https://dlv-rtest.vercel.app/findNearestRider", {
+      const response = await fetch("http://localhost:3000/api/findNearestRider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
