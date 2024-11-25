@@ -136,7 +136,7 @@ app.post('/api/findNearestRider', async (req, res) => {
   try {
     // Get company document and rider numbers
     const companyDoc = await db.collection('logistics_companies').doc(companyId).get();
-    
+
     if (!companyDoc.exists) {
       return res.status(404).json({
         success: false,
@@ -146,7 +146,7 @@ app.post('/api/findNearestRider', async (req, res) => {
 
     const riderNumbers = companyDoc.data().riderNumbers || [];
     console.log('Found rider numbers:', riderNumbers);
-    
+
     if (!riderNumbers.length) {
       return res.status(404).json({
         success: false,
@@ -158,7 +158,12 @@ app.post('/api/findNearestRider', async (req, res) => {
     const ridersWithLocations = await Promise.all(
       riderNumbers.map(async (number) => {
         const location = await getRiderLocation(number);
-        return { riderNumber: number, location };
+
+        // Fetch rider details from 'riders' collection
+        const riderDoc = await db.collection('riders').doc(number).get();
+        const rider = riderDoc.exists ? riderDoc.data() : { name: 'Unknown', phoneNumber: number };
+
+        return { riderNumber: number, location, name: rider.name, phoneNumber: rider.phoneNumber };
       })
     );
     console.log('Riders with locations:', ridersWithLocations);
@@ -177,8 +182,7 @@ app.post('/api/findNearestRider', async (req, res) => {
 
       if (distance < minDistance) {
         nearestRider = {
-          riderNumber: rider.riderNumber,
-          location: rider.location,
+          ...rider,
           distance
         };
         minDistance = distance;
@@ -212,7 +216,8 @@ app.post('/api/findNearestRider', async (req, res) => {
       success: true,
       deliveryId: deliveryRef.id,
       rider: {
-        number: nearestRider.riderNumber,
+        name: nearestRider.name,
+        phoneNumber: nearestRider.phoneNumber,
         distance: nearestRider.distance,
         location: nearestRider.location
       }
