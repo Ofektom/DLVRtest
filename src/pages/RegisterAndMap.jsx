@@ -55,13 +55,12 @@ const RegisterAndMap = () => {
     }
   };
 
-
   const handleLocationSelect = (location) => {
     setValue("latitude", location.lat);
     setValue("longitude", location.lon);
-    setValue("address", location.display_name);
     setSuggestions([]);
   };
+  
 
   const addRiderNumber = () => {
     if (currentNumber) {
@@ -74,14 +73,9 @@ const RegisterAndMap = () => {
     setRiderNumbers((prev) => prev.filter((_, i) => i !== index));
   };
 
-
   const onRegisterSubmit = async (data) => {
     try {
-      const location = {
-        latitude: parseFloat(data.latitude),
-        longitude: parseFloat(data.longitude),
-        address: data.address, // Include address in the payload
-      };
+      const location = { latitude: parseFloat(data.latitude), longitude: parseFloat(data.longitude) };
       const newCompany = { ...data, location, riderNumbers };
       await addDoc(collection(db, "logistics_companies"), newCompany);
       alert("Company registered successfully!");
@@ -150,12 +144,10 @@ const RegisterAndMap = () => {
           <div>
             <label className="block mb-1">Address</label>
             <input
-              {...register("address", { required: true })}
               onChange={(e) => fetchSuggestions(e.target.value)}
               className="w-full p-2 border rounded"
               placeholder="Search location"
             />
-            {errors.address && <span className="text-red-500">Address is required</span>}
             {suggestions.length > 0 && (
               <ul className="border p-2 mt-2 bg-white rounded shadow">
                 {suggestions.map((suggestion, index) => (
@@ -218,14 +210,13 @@ const RegisterAndMap = () => {
               <Popup>
                 <div>
                   <p><strong>{company.name}</strong></p>
-                  <p>Address: {company.address}</p>
+                  <p>Address: {company.whatsapp_number}</p>
                   <p>Phone: {company.whatsapp_number}</p>
-                  <p>Email: {company.email}</p>
                   <form onSubmit={(e) => handleOrderSubmit(e, company.id)}>
                     <input type="text" name="pickup" placeholder="Pickup point" className="w-full p-2 border rounded mb-2" />
                     <input type="text" name="dropoff" placeholder="Dropoff point" className="w-full p-2 border rounded mb-2" />
                     <textarea name="description" placeholder="Description" className="w-full p-2 border rounded mb-2"></textarea>
-                    <button type="submit" className="w-full bg-green-500 text-white p-2 rounded">Book Now</button>
+                    <button type="submit" className="w-full bg-green-500 text-white p-2 rounded">Submit</button>
                   </form>
                   {availableRiders.length > 0 && (
                     <div>
