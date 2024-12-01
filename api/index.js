@@ -18,7 +18,11 @@ console.log('Environment Variables Check:', {
 const app = express();
 
 // Enable CORS and JSON parsing
-app.use(cors({ origin: true }));
+app.use(cors({ 
+  origin: true,
+  methods: ['POST', 'GET', 'PUT', 'DELETE'],
+  credentials: true
+ }));
 app.use(express.json());
 
 // Initialize Firebase Admin
@@ -61,6 +65,8 @@ const opencellIdAxios = axios.create({
   }
 });
 
+console.log('OpenCellId API details', opencellIdAxios);
+
 // Test endpoint
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working' });
@@ -87,6 +93,7 @@ async function getRiderLocation(riderNumber) {
   try {
     const response = await opencellIdAxios.get('/cell', {
       params: {
+        key: process.env.OPENCELLID_API_KEY,
         mcc: 621,
         format: 'json',
         msisdn: riderNumber
@@ -157,16 +164,48 @@ app.post('/api/findNearestRider', async (req, res) => {
     // Get locations for each rider
     const ridersWithLocations = await Promise.all(
       riderNumbers.map(async (number) => {
-        const location = await getRiderLocation(number);
-
-        // Fetch rider details from 'riders' collection
+        // Fetch rider details from the 'riders' collection
         const riderDoc = await db.collection('riders').doc(number).get();
-        const rider = riderDoc.exists ? riderDoc.data() : { name: 'Unknown', phoneNumber: number };
-
-        return { riderNumber: number, location, name: rider.name, phoneNumber: rider.phoneNumber };
+    
+        let rider;
+        if (riderDoc.exists) {
+          rider = riderDoc.data(); // Use existing rider data
+        } else {
+          // Create a new rider document with basic information
+          rider = { name: 'Unknown Rider', phoneNumber: number };
+          await db.collection('riders').doc(number).set(rider);
+          console.log(`Created new rider document for number: ${number}`);
+        }
+    
+        // Get the rider's location
+        const location = await getRiderLocation(number);
+    
+        return { location, name: rider.name, phoneNumber: rider.phoneNumber };
       })
     );
+    
     console.log('Riders with locations:', ridersWithLocations);
+
+    // Handle single rider case
+    if (ridersWithLocations.length === 1) {
+      const [rider] = ridersWithLocations;
+
+      return res.status(200).json({
+        success: true,
+        rider: {
+          name: rider.name,
+          phoneNumber: rider.phoneNumber,
+          location: rider.location,
+          distance: calculateDistance(
+            pickup.latitude,
+            pickup.longitude,
+            rider.location.latitude,
+            rider.location.longitude
+          ),
+        },
+      });
+    }
+
 
     // Find the nearest rider
     let nearestRider = null;
@@ -179,6 +218,7 @@ app.post('/api/findNearestRider', async (req, res) => {
         rider.location.latitude,
         rider.location.longitude
       );
+
 
       if (distance < minDistance) {
         nearestRider = {
@@ -196,21 +236,22 @@ app.post('/api/findNearestRider', async (req, res) => {
       });
     }
 
-    // Create delivery record
-    const deliveryRef = await db.collection('deliveries').add({
+     // Create delivery record
+     const deliveryRef = await db.collection('deliveries').add({
       dropoff,
       description,
       pickup,
-      riderNumber: nearestRider.riderNumber,
+      riderName: nearestRider.name,
+      riderNumber: nearestRider.phoneNumber,
       riderLocation: nearestRider.location,
       companyId,
       distance: nearestRider.distance,
       status: 'assigned',
-      assignedRider: nearestRider.riderNumber,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log('Created delivery:', deliveryRef.id);
+
 
     return res.status(200).json({
       success: true,
@@ -218,8 +259,8 @@ app.post('/api/findNearestRider', async (req, res) => {
       rider: {
         name: nearestRider.name,
         phoneNumber: nearestRider.phoneNumber,
-        distance: nearestRider.distance,
-        location: nearestRider.location
+        location: nearestRider.location,
+        distance: nearestRider.distance
       }
     });
 

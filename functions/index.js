@@ -76,7 +76,7 @@ async function getRiderLocation(riderNumber) {
     }
 
     // If API doesn't return valid coordinates, use mock location
-    return getMockLocation();
+    return getMockLocation(riderNumber);
 
   } catch (error) {
     console.error(`OpenCellID API error for ${riderNumber}:`, error.message);
